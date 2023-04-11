@@ -25,17 +25,26 @@ struct PaddlePositions {
 void positionsUdateWithKeyPress(struct PaddlePositions *positions) {
 	int increment = 5; // how fast it goes
 	if (IsKeyDown(ARROW_UP)) {
-		positions->right += increment;
+		if (positions->right + PADDLE_SIZE < SCREENHEIGHT) {
+			positions->right += increment;
+		}
 	}
 	else if (IsKeyDown(ARROW_DOWN)) {
-		positions->right -= increment;
+
+		if (positions->right > 0) {
+			positions->right -= increment;
+		}
 	}
 
 	if (IsKeyDown(WASD_UP)) {
-		positions->left -= increment;
+		if (positions->left > 0) {
+			positions->left -= increment;
+		}
 	}
 	else if (IsKeyDown(WASD_DOWN)) {
-		positions->left += increment;
+		if (positions->left + PADDLE_SIZE < SCREENHEIGHT) {
+			positions->left += increment;
+		}
 	}
 }
 
@@ -45,21 +54,21 @@ struct BallPosition {
 };
 
 // changes direction of ball based on colision. Returns true if collides
-bool collisionsChangeBallDirection(struct BallPosition *ballDir, struct BallPosition ballPos, struct PaddlePositions positions) {
-	bool isOnLeftSide = ballPos.x == LEFT_PADDLE_XPOS;
-	bool isOnRightSide = ballPos.x == RIGHT_PADDLE_XPOS;
+bool collisionsChangeBallDirection(struct BallPosition *ballDir, const struct BallPosition *ballPos, const struct PaddlePositions *positions) {
+	bool isOnLeftSide = ballPos->x == LEFT_PADDLE_XPOS;
+	bool isOnRightSide = ballPos->x == RIGHT_PADDLE_XPOS;
 	if (!isOnLeftSide && !isOnRightSide) {
 		return false;
 	}
 
-	if (isOnLeftSide && ballPos.y >= positions.left && ballPos.y <= positions.left + PADDLE_SIZE) {
+	if (isOnLeftSide && ballPos->y >= positions->left && ballPos->y <= positions->left + PADDLE_SIZE) {
 		ballDir->x = 5;
-		int yDir = (((double) ballPos.y - (double) positions.left) / PADDLE_SIZE) * 100;
+		int yDir = (((double) ballPos->y - (double) positions->left) / PADDLE_SIZE) * 100;
 		ballDir->y = (yDir - 50) / 5;
 	}
-	else if (isOnRightSide && ballPos.y >= positions.right && ballPos.y <= positions.right + PADDLE_SIZE) {
+	else if (isOnRightSide && ballPos->y >= positions->right && ballPos->y <= positions->right + PADDLE_SIZE) {
 		ballDir->x = -5;
-		int yDir = (((double) ballPos.y - (double) positions.right) / PADDLE_SIZE) * 100;
+		int yDir = (((double) ballPos->y - (double) positions->right) / PADDLE_SIZE) * 100;
 		ballDir->y = (yDir - 50) / 5;
 	}
 	return true;
@@ -69,7 +78,7 @@ int main(void) {
 	// Initialization
 	//--------------------------------------------------------------------------------------
 
-	InitWindow(SCREENWIDTH, SCREENHEIGHT, "raylib [core] example - basic window");
+	InitWindow(SCREENWIDTH, SCREENHEIGHT, "Paddle Game");
 
 	SetTargetFPS(60); // Set our game to run at 60 frames-per-second
 
@@ -101,7 +110,7 @@ int main(void) {
 	Sound collisionSound = LoadSound("./collision.wav");
 	Music music = LoadMusicStream("./song_loop.wav");
 	PlayMusicStream(music);
-	SetMusicVolume(music, 0.1);                 // Set volume for music (1.0 is max level)
+	SetMusicVolume(music, 0.1); // Set volume for music (1.0 is max level)
 
 	while (!WindowShouldClose()) {
 		UpdateMusicStream(music);
@@ -136,14 +145,15 @@ int main(void) {
 			isGameOver = false;
 			positions.left = (SCREENHEIGHT / 2) - (PADDLE_SIZE / 2);
 			positions.right = (SCREENHEIGHT / 2) - (PADDLE_SIZE / 2);
+			framesCounter = 0;
 		}
 
 		if (isGameOver) {
-			if (framesCounter < 1500) {
+			if (framesCounter < 2000) {
 				framesCounter += 8;
 			}
 
-			sprintf(text, "Game over! %s\nPress r to restart\n%d volleys\n\n\nMusic credit goes to:\nsyzmalix: https://linktr.ee/szymalix\nand kablazic: https://soundcloud.com/kablazik\n", winnerText, volleys - 1);
+			sprintf(text, "Game over! %s\nPress r to restart\n%d volleys\n\n\nMusic credit goes to:\nsyzmalix: https://linktr.ee/szymalix\nand kablazic: https://soundcloud.com/kablazik\n\nWritting using Raylib", winnerText, volleys - 1);
 			EndDrawing();
 			DrawText(TextSubtext(text, 0, framesCounter / 10), 10, 30, 20, LIGHTGRAY);
 
@@ -152,7 +162,7 @@ int main(void) {
 
 		DrawText(text, 10, 30, 20, LIGHTGRAY);
 
-		if (collisionsChangeBallDirection(&ballDir, ballPos, positions)) {
+		if (collisionsChangeBallDirection(&ballDir, &ballPos, &positions)) {
 			PlaySound(collisionSound);
 			volleys += 1;
 		};
@@ -161,8 +171,8 @@ int main(void) {
 		ballPos.y += ballDir.y;
 		positionsUdateWithKeyPress(&positions);
 
-		DrawRectangle(LEFT_PADDLE_XPOS, positions.left, 10, PADDLE_SIZE, LIGHTGRAY);
-		DrawRectangle(RIGHT_PADDLE_XPOS, positions.right, 10, PADDLE_SIZE, LIGHTGRAY);
+		DrawRectangle(LEFT_PADDLE_XPOS, positions.left, 10, PADDLE_SIZE, BLUE);
+		DrawRectangle(RIGHT_PADDLE_XPOS, positions.right, 10, PADDLE_SIZE, RED);
 		DrawCircle(ballPos.x, ballPos.y, 10, LIGHTGRAY);
 
 		EndDrawing();
