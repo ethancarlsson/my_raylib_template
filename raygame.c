@@ -1,21 +1,12 @@
 #include "raylib.h"
 #include "stdio.h"
+#include "constants.h"
 
-const int ARROW_UP = 264;
-const int ARROW_DOWN = 265;
+// #define PLATFORM_WEB
 
-const int WASD_UP = 87;
-const int WASD_DOWN = 83;
-
-const int RESTART = 82;
-
-const int PADDLE_SIZE = 80;
-
-const int SCREENWIDTH = 800;
-const int SCREENHEIGHT = 450;
-
-const int LEFT_PADDLE_XPOS = 0 + 20;
-const int RIGHT_PADDLE_XPOS = SCREENWIDTH - 20;
+#if defined(PLATFORM_WEB)
+#include <emscripten/emscripten.h>
+#endif
 
 struct PaddlePositions {
 	int left;
@@ -23,7 +14,7 @@ struct PaddlePositions {
 };
 
 void positionsUdateWithKeyPress(struct PaddlePositions *positions) {
-	int increment = 5; // how fast it goes
+	int increment = BALL_SPEED; // how fast it goes
 	if (IsKeyDown(ARROW_UP)) {
 		if (positions->right + PADDLE_SIZE < SCREENHEIGHT) {
 			positions->right += increment;
@@ -62,16 +53,101 @@ bool collisionsChangeBallDirection(struct BallPosition *ballDir, const struct Ba
 	}
 
 	if (isOnLeftSide && ballPos->y >= positions->left && ballPos->y <= positions->left + PADDLE_SIZE) {
-		ballDir->x = 5;
+		ballDir->x = BALL_SPEED;
 		int yDir = (((double) ballPos->y - (double) positions->left) / PADDLE_SIZE) * 100;
-		ballDir->y = (yDir - 50) / 5;
+		ballDir->y = (yDir - 50) / BALL_SPEED;
 	}
 	else if (isOnRightSide && ballPos->y >= positions->right && ballPos->y <= positions->right + PADDLE_SIZE) {
-		ballDir->x = -5;
+		ballDir->x = -BALL_SPEED;
 		int yDir = (((double) ballPos->y - (double) positions->right) / PADDLE_SIZE) * 100;
-		ballDir->y = (yDir - 50) / 5;
+		ballDir->y = (yDir - 50) / BALL_SPEED;
 	}
 	return true;
+}
+
+struct GameState {
+	const Music *music;
+	const Sound *collisionSound;
+	struct PaddlePositions *positions;
+	struct BallPosition *ballPos;
+	struct BallPosition *ballDir;
+	char *text;
+	char *winnerText;
+	bool isGameOver;
+	int volleys;
+	int framesCounter;
+};
+
+void gameTick(void *arg) {
+	struct GameState *gamesState = (struct GameState *) arg;
+
+	UpdateMusicStream(*gamesState->music);
+	BeginDrawing();
+
+	ClearBackground(DARKPURPLE);
+
+	if (gamesState->ballPos->x > SCREENWIDTH) {
+		sprintf(gamesState->winnerText, "Left wins!");
+		gamesState->isGameOver = true;
+	}
+
+	if (gamesState->ballPos->x < 0) {
+		sprintf(gamesState->winnerText, "Right wins!");
+		gamesState->isGameOver = true;
+	}
+
+	if (gamesState->ballPos->y > SCREENHEIGHT || gamesState->ballPos->y < 0) {
+		gamesState->ballDir->y = gamesState->ballDir->y * -1;
+	}
+
+	int keyPressed = GetKeyPressed();
+
+	sprintf(gamesState->text, "Volleys %d", gamesState->volleys);
+
+	if (gamesState->isGameOver && keyPressed == RESTART) {
+		gamesState->ballPos->x = SCREENWIDTH / 2;
+		gamesState->ballPos->y = SCREENHEIGHT / 2;
+		gamesState->ballDir->x = 5;
+		gamesState->ballDir->y = 0;
+		gamesState->volleys = 0;
+		gamesState->isGameOver = false;
+		gamesState->positions->left = (SCREENHEIGHT / 2) - (PADDLE_SIZE / 2);
+		gamesState->positions->right = (SCREENHEIGHT / 2) - (PADDLE_SIZE / 2);
+		gamesState->framesCounter = 0;
+	}
+
+	if (gamesState->isGameOver) {
+		if (gamesState->framesCounter < 2000) {
+			gamesState->framesCounter += 8;
+		}
+
+		sprintf(
+		    gamesState->text,
+		    "Game over! %s\nPress r to restart\n%d volleys\n\n\nMusic credit goes to:\nsyzmalix: https://linktr.ee/szymalix\nand kablazic: https://soundcloud.com/kablazik\n\nWritting using Raylib",
+		    gamesState->winnerText,
+		    gamesState->volleys - 1);
+		EndDrawing();
+		DrawText(TextSubtext(gamesState->text, 0, gamesState->framesCounter / 10), 10, 30, 20, LIGHTGRAY);
+
+		return;
+	}
+
+	DrawText(gamesState->text, 10, 30, 20, LIGHTGRAY);
+
+	if (collisionsChangeBallDirection(gamesState->ballDir, gamesState->ballPos, gamesState->positions)) {
+		PlaySound(*gamesState->collisionSound);
+		gamesState->volleys += 1;
+	};
+
+	gamesState->ballPos->x += gamesState->ballDir->x;
+	gamesState->ballPos->y += gamesState->ballDir->y;
+	positionsUdateWithKeyPress(gamesState->positions);
+
+	DrawRectangle(LEFT_PADDLE_XPOS, gamesState->positions->left, 10, PADDLE_SIZE, BLUE);
+	DrawRectangle(RIGHT_PADDLE_XPOS, gamesState->positions->right, 10, PADDLE_SIZE, RED);
+	DrawCircle(gamesState->ballPos->x, gamesState->ballPos->y, 10, LIGHTGRAY);
+
+	EndDrawing();
 }
 
 int main(void) {
@@ -112,71 +188,28 @@ int main(void) {
 	PlayMusicStream(music);
 	SetMusicVolume(music, 0.1); // Set volume for music (1.0 is max level)
 
+	struct GameState gamesState = {
+	    &music,
+	    &collisionSound,
+	    &positions,
+	    &ballPos,
+	    &ballDir,
+	    text,
+	    winnerText,
+	    isGameOver,
+	    volleys,
+	    framesCounter,
+	};
+
+#if defined(PLATFORM_WEB)
+	typedef void (*myFuncDef)(void *);
+	myFuncDef cb = &gameTick;
+	emscripten_set_main_loop_arg(cb, &gamesState, 0, 1);
+#else
 	while (!WindowShouldClose()) {
-		UpdateMusicStream(music);
-		BeginDrawing();
-
-		ClearBackground(DARKPURPLE);
-
-		if (ballPos.x > SCREENWIDTH) {
-			sprintf(winnerText, "Left wins!");
-			isGameOver = true;
-		}
-
-		if (ballPos.x < 0) {
-			sprintf(winnerText, "Right wins!");
-			isGameOver = true;
-		}
-
-		if (ballPos.y > SCREENHEIGHT || ballPos.y < 0) {
-			ballDir.y = ballDir.y * -1;
-		}
-
-		int keyPressed = GetKeyPressed();
-
-		sprintf(text, "Volleys %d", volleys);
-
-		if (isGameOver && keyPressed == RESTART) {
-			ballPos.x = SCREENWIDTH / 2;
-			ballPos.y = SCREENHEIGHT / 2;
-			ballDir.x = 5;
-			ballDir.y = 0;
-			volleys = 0;
-			isGameOver = false;
-			positions.left = (SCREENHEIGHT / 2) - (PADDLE_SIZE / 2);
-			positions.right = (SCREENHEIGHT / 2) - (PADDLE_SIZE / 2);
-			framesCounter = 0;
-		}
-
-		if (isGameOver) {
-			if (framesCounter < 2000) {
-				framesCounter += 8;
-			}
-
-			sprintf(text, "Game over! %s\nPress r to restart\n%d volleys\n\n\nMusic credit goes to:\nsyzmalix: https://linktr.ee/szymalix\nand kablazic: https://soundcloud.com/kablazik\n\nWritting using Raylib", winnerText, volleys - 1);
-			EndDrawing();
-			DrawText(TextSubtext(text, 0, framesCounter / 10), 10, 30, 20, LIGHTGRAY);
-
-			continue;
-		}
-
-		DrawText(text, 10, 30, 20, LIGHTGRAY);
-
-		if (collisionsChangeBallDirection(&ballDir, &ballPos, &positions)) {
-			PlaySound(collisionSound);
-			volleys += 1;
-		};
-
-		ballPos.x += ballDir.x;
-		ballPos.y += ballDir.y;
-		positionsUdateWithKeyPress(&positions);
-
-		DrawRectangle(LEFT_PADDLE_XPOS, positions.left, 10, PADDLE_SIZE, BLUE);
-		DrawRectangle(RIGHT_PADDLE_XPOS, positions.right, 10, PADDLE_SIZE, RED);
-		DrawCircle(ballPos.x, ballPos.y, 10, LIGHTGRAY);
-
-		EndDrawing();
+		gameTick(&gamesState);
 	}
+#endif
 
 	CloseWindow();
 	CloseAudioDevice();

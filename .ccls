@@ -1,2 +1,3 @@
 cc
 -I/opt/homebrew/Cellar/raylib/4.5.0/include
+-I/opt/homebrew/Cellar/emscripten/3.1.35/libexec/system/include

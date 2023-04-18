@@ -1,2 +1,10 @@
 .ccls-cache
 RayGame
+game.html
+game.js
+main.html
+main.js
+main.wasm
+
+include
+lib
