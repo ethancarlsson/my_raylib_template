@@ -1,0 +1,22 @@
+#!/bin/sh
+
+if [ "$1" == "web" ]; then
+	echo "clearing old stuff out...";
+	make clean;
+	echo "building for web...";
+	make;
+elif [ "$1" == "clean" ]; then
+	echo "cleaning old stuff...";
+	make clean;
+	rm ./villages;
+	rm ./game.o;
+	echo "all clean";
+else
+	echo "building for desktop...";
+	echo "building .o files...";
+	cd desktop_build && cc -c ../src/game.c ../src/main.c -I../desktop_inc ; 
+	echo "building bin...";
+	cc game.o main.o `pkg-config --libs --cflags raylib` -o villages && cd ..;
+	echo "build finished";
+fi
+
