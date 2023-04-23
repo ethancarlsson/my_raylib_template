@@ -19,7 +19,7 @@
 int main(void) {
 	// Initialization
 	//--------------------------------------------------------------------------------------
-	InitWindow(1000, 800, "Villages game");
+	InitWindow(1000, 800, "Village links");
 	SetTargetFPS(60);
 	char text[200]; // in the top left
 	struct GameState gamesState = {

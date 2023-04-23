@@ -17,7 +17,7 @@ void gameTick(void *arg) {
 
 	ClearBackground(DARKGRAY);
 
-	sprintf(gamesState->text, "A game about distributing resources...");
+	sprintf(gamesState->text, "Link up your villages!");
 
 	DrawText(gamesState->text, 10, 30, 20, LIGHTGRAY);
 
