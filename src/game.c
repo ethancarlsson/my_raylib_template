@@ -17,7 +17,9 @@ void gameTick(void *arg) {
 
 	ClearBackground(DARKGRAY);
 
-	sprintf(gamesState->text, "Link up your villages!");
+	sprintf(
+	    gamesState->text,
+	    "A template for web and desktop.");
 
 	DrawText(gamesState->text, 10, 30, 20, LIGHTGRAY);
 

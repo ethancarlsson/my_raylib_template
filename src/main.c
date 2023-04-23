@@ -9,8 +9,7 @@
 #endif
 
 #include "game.h"
-
-// #define PLATFORM_WEB
+#include "platform.h"
 
 #if defined(PLATFORM_WEB)
 #include <emscripten/emscripten.h>
@@ -19,7 +18,7 @@
 int main(void) {
 	// Initialization
 	//--------------------------------------------------------------------------------------
-	InitWindow(1000, 800, "Village links");
+	InitWindow(1000, 800, "The game");
 	SetTargetFPS(60);
 	char text[200]; // in the top left
 	struct GameState gamesState = {
